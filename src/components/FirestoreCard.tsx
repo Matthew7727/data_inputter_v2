@@ -1,8 +1,7 @@
-// src/components/FirestoreCard.tsx
 import React, { useState } from 'react';
-import { Card, CardContent, Typography, Box, List, ListItem, ListItemText, Divider, Collapse } from '@mui/material';
+import { Card, CardContent, Typography, Box, List, ListItem, ListItemText, Divider, Collapse, Button, Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle, TextField, Stack } from '@mui/material';
 import { ExpandMore, ExpandLess } from '@mui/icons-material';
-import { getDocuments, getDocument } from '../firebase/firestoreService';
+import { getDocuments, getDocument, addDocument } from '../firebase/firestoreService';
 import ReactJson from 'react-json-view';
 
 const collections = ['aboutMe', 'generic', 'posts', 'projects', 'userSubmissions'];
@@ -11,6 +10,8 @@ const FirestoreCard = () => {
   const [openCollections, setOpenCollections] = useState<{ [key: string]: boolean }>({});
   const [documents, setDocuments] = useState<{ [key: string]: { id: string; data: any }[] }>({});
   const [selectedDocument, setSelectedDocument] = useState<{ id: string; data: any } | null>(null);
+  const [openDialog, setOpenDialog] = useState(false);
+  const [newPostData, setNewPostData] = useState<{ [key: string]: any }>({});
 
   const toggleCollection = async (collectionName: string) => {
     setOpenCollections(prevState => ({
@@ -32,9 +33,46 @@ const FirestoreCard = () => {
     setSelectedDocument(doc);
   };
 
+  const handleAddPostClick = () => {
+    setOpenDialog(true);
+  };
+
+  const handleDialogClose = () => {
+    setOpenDialog(false);
+    setNewPostData({});
+  };
+
+  const handleInputChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = event.target;
+    setNewPostData(prevData => ({
+      ...prevData,
+      [name]: value
+    }));
+  };
+
+  const handleFormSubmit = async () => {
+    await addDocument('posts', newPostData);
+    setOpenDialog(false);
+    setNewPostData({});
+    fetchDocuments('posts'); // Refresh the posts collection
+  };
+
+  const fetchDocuments = async (collectionName: string) => {
+    const docs = await getDocuments(collectionName);
+    setDocuments(prevState => ({
+      ...prevState,
+      [collectionName]: docs
+    }));
+  };
+
   return (
     <Card sx={{ display: 'flex', height: '100%', width: '100%' }}>
       <Box sx={{ width: '30%', borderRight: 1, borderColor: 'divider', overflowY: 'auto' }}>
+        <Stack direction="row" spacing={2} padding={2}>
+          <Button variant="contained" onClick={handleAddPostClick}>
+            Add Post
+          </Button>
+        </Stack>
         <List>
           {collections.map((collection) => (
             <React.Fragment key={collection}>
@@ -70,6 +108,35 @@ const FirestoreCard = () => {
           )}
         </CardContent>
       </Box>
+      <Dialog open={openDialog} onClose={handleDialogClose}>
+        <DialogTitle>Add New Post</DialogTitle>
+        <DialogContent>
+          <DialogContentText>
+            Enter the data for the new post.
+          </DialogContentText>
+          <TextField
+            autoFocus
+            margin="dense"
+            label="Title"
+            name="title"
+            fullWidth
+            onChange={handleInputChange}
+          />
+          <TextField
+            margin="dense"
+            label="Content"
+            name="content"
+            fullWidth
+            multiline
+            rows={4}
+            onChange={handleInputChange}
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleDialogClose}>Cancel</Button>
+          <Button onClick={handleFormSubmit}>Submit</Button>
+        </DialogActions>
+      </Dialog>
     </Card>
   );
 };
