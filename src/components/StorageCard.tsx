@@ -1,4 +1,3 @@
-// src/components/StorageTab.tsx
 import React, { useState, useEffect } from 'react';
 import fb from '../firebase/firebaseConfig';
 import { ref, listAll, getDownloadURL, deleteObject, uploadBytes } from 'firebase/storage';
@@ -8,7 +7,7 @@ import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import DeleteIcon from '@mui/icons-material/Delete';
 import FolderIcon from '@mui/icons-material/Folder';
 import InsertDriveFileIcon from '@mui/icons-material/InsertDriveFile';
-import UploadIcon from '@mui/icons-material/Upload';
+
 
 interface StorageItem {
   name: string;
@@ -26,8 +25,9 @@ const StorageTab: React.FC = () => {
   const [openFileDialog, setOpenFileDialog] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
 
-  useEffect(() => {
-    const fetchItems = async () => {
+  const fetchItems = async () => {
+    setLoading(true);
+    try {
       const storageRef = ref(fb.storage, path);
       const res = await listAll(storageRef);
 
@@ -44,9 +44,13 @@ const StorageTab: React.FC = () => {
       }));
 
       setItems([...folders, ...files]);
-      setLoading(false);
-    };
+    } catch (error) {
+      console.error('Error fetching items:', error);
+    }
+    setLoading(false);
+  };
 
+  useEffect(() => {
     fetchItems();
   }, [path]);
 
@@ -56,6 +60,8 @@ const StorageTab: React.FC = () => {
     } else {
       getDownloadURL(ref(fb.storage, item.fullPath)).then((url) => {
         window.open(url, '_blank');
+      }).catch((error) => {
+        console.error('Error getting download URL:', error);
       });
     }
   };
@@ -64,12 +70,24 @@ const StorageTab: React.FC = () => {
     setPath(prevPath => prevPath.substring(0, prevPath.lastIndexOf('/')));
   };
 
-  const handleDeleteClick = (fullPath: string) => {
-    deleteObject(ref(fb.storage, fullPath)).then(() => {
-      setItems(prevItems => prevItems.filter(item => item.fullPath !== fullPath));
-    }).catch((error) => {
-      console.error("Error deleting file:", error);
-    });
+  const deleteFolderContents = async (folderRef: any) => {
+    const res = await listAll(folderRef);
+    const promises = res.items.map((itemRef) => deleteObject(itemRef));
+    await Promise.all(promises);
+  };
+
+  const handleDeleteClick = async (fullPath: string, isFolder: boolean, event: React.MouseEvent) => {
+    event.stopPropagation(); // Prevent the click event from propagating to the ListItem
+    try {
+      const itemRef = ref(fb.storage, fullPath);
+      if (isFolder) {
+        await deleteFolderContents(itemRef);
+      }
+      await deleteObject(itemRef);
+      fetchItems(); // Refresh the item list
+    } catch (error) {
+      console.error("Error deleting item:", error);
+    }
   };
 
   const handleMenuClick = (event: React.MouseEvent<HTMLButtonElement>) => {
@@ -101,13 +119,13 @@ const StorageTab: React.FC = () => {
   };
 
   const handleFolderSubmit = async () => {
-    const newFolderRef = ref(fb.storage, `${path}/${folderName}/`);
-    // Firebase Storage doesn't support creating empty folders, so we upload a placeholder file
-    const placeholderFile = new File(["placeholder"], "placeholder.txt", { type: "text/plain" });
-    await uploadBytes(newFolderRef, placeholderFile);
-    handleFolderDialogClose();
-    // Refresh the item list
-    setPath(prevPath => prevPath); 
+    if (folderName) {
+      const newFolderRef = ref(fb.storage, `${path}/${folderName}/placeholder.txt`);
+      const placeholderFile = new File(["placeholder"], "placeholder.txt", { type: "text/plain" });
+      await uploadBytes(newFolderRef, placeholderFile);
+      handleFolderDialogClose();
+      fetchItems(); // Refresh the item list
+    }
   };
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -121,8 +139,7 @@ const StorageTab: React.FC = () => {
       const fileRef = ref(fb.storage, `${path}/${selectedFile.name}`);
       await uploadBytes(fileRef, selectedFile);
       handleFileDialogClose();
-      // Refresh the item list
-      setPath(prevPath => prevPath); 
+      fetchItems(); // Refresh the item list
     }
   };
 
@@ -196,11 +213,9 @@ const StorageTab: React.FC = () => {
                   </Stack>
                 }
               />
-              {!item.isFolder && (
-                <IconButton edge="end" aria-label="delete" onClick={() => handleDeleteClick(item.fullPath)}>
-                  <DeleteIcon />
-                </IconButton>
-              )}
+              <IconButton edge="end" aria-label="delete" onClick={(event) => handleDeleteClick(item.fullPath, item.isFolder, event)}>
+                <DeleteIcon />
+              </IconButton>
             </ListItem>
           ))}
         </List>
