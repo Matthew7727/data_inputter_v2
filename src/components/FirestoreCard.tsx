@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
-import { Card, CardContent, Typography, Box, List, ListItem, ListItemText, Divider, Collapse, Button, Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle, TextField, Stack } from '@mui/material';
+import { Card, CardContent, Typography, Box, List, ListItem, ListItemText, Divider, Collapse, Button, Stack } from '@mui/material';
 import { ExpandMore, ExpandLess } from '@mui/icons-material';
 import { getDocuments, getDocument, addDocument } from '../firebase/firestoreService';
 import ReactJson from 'react-json-view';
+import PostForm from './PostForm';
 
 const collections = ['aboutMe', 'generic', 'posts', 'projects', 'userSubmissions'];
 
@@ -11,7 +12,6 @@ const FirestoreCard = () => {
   const [documents, setDocuments] = useState<{ [key: string]: { id: string; data: any }[] }>({});
   const [selectedDocument, setSelectedDocument] = useState<{ id: string; data: any } | null>(null);
   const [openDialog, setOpenDialog] = useState(false);
-  const [newPostData, setNewPostData] = useState<{ [key: string]: any }>({});
 
   const toggleCollection = async (collectionName: string) => {
     setOpenCollections(prevState => ({
@@ -39,21 +39,11 @@ const FirestoreCard = () => {
 
   const handleDialogClose = () => {
     setOpenDialog(false);
-    setNewPostData({});
   };
 
-  const handleInputChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = event.target;
-    setNewPostData(prevData => ({
-      ...prevData,
-      [name]: value
-    }));
-  };
-
-  const handleFormSubmit = async () => {
-    await addDocument('posts', newPostData);
+  const handleFormSubmit = async (data: any) => {
+    await addDocument('posts', data);
     setOpenDialog(false);
-    setNewPostData({});
     fetchDocuments('posts'); // Refresh the posts collection
   };
 
@@ -108,35 +98,7 @@ const FirestoreCard = () => {
           )}
         </CardContent>
       </Box>
-      <Dialog open={openDialog} onClose={handleDialogClose}>
-        <DialogTitle>Add New Post</DialogTitle>
-        <DialogContent>
-          <DialogContentText>
-            Enter the data for the new post.
-          </DialogContentText>
-          <TextField
-            autoFocus
-            margin="dense"
-            label="Title"
-            name="title"
-            fullWidth
-            onChange={handleInputChange}
-          />
-          <TextField
-            margin="dense"
-            label="Content"
-            name="content"
-            fullWidth
-            multiline
-            rows={4}
-            onChange={handleInputChange}
-          />
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={handleDialogClose}>Cancel</Button>
-          <Button onClick={handleFormSubmit}>Submit</Button>
-        </DialogActions>
-      </Dialog>
+      <PostForm open={openDialog} onClose={handleDialogClose} onSubmit={handleFormSubmit} />
     </Card>
   );
 };
