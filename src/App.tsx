@@ -1,8 +1,9 @@
-// src/App.tsx
 import React from 'react';
-import { Container, Tabs, Tab, Box } from '@mui/material';
+import { Container, Tabs, Tab, Box, Button } from '@mui/material';
 import FirestoreCard from './components/FirestoreCard';
-import DatabaseCard from './components/DatabaseCard';
+import StorageCard from './components/StorageCard';
+import Login from './components/Login';
+import { AuthProvider, useAuth } from './contexts/AuthContext';
 
 function TabPanel(props: { children?: React.ReactNode; index: number; value: number }) {
   const { children, value, index, ...other } = props;
@@ -25,8 +26,9 @@ function TabPanel(props: { children?: React.ReactNode; index: number; value: num
   );
 }
 
-const App = () => {
+const AuthenticatedApp: React.FC = () => {
   const [value, setValue] = React.useState(0);
+  const { logout } = useAuth();
 
   const handleChange = (event: React.SyntheticEvent, newValue: number) => {
     setValue(newValue);
@@ -39,17 +41,36 @@ const App = () => {
           <Tab label="Firestore" />
           <Tab label="Database" />
         </Tabs>
+        <Button onClick={logout} sx={{ marginLeft: 'auto' }}>Log Out</Button>
       </Box>
       <Box sx={{ flexGrow: 1, display: 'flex' }}>
         <TabPanel value={value} index={0}>
           <FirestoreCard />
         </TabPanel>
         <TabPanel value={value} index={1}>
-          <DatabaseCard />
+          <StorageCard />
         </TabPanel>
       </Box>
     </Container>
   );
 };
 
-export default App;
+const App: React.FC = () => {
+  const { currentUser } = useAuth();
+
+  return (
+    <Box sx={{ height: '100vh', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+      {currentUser ? <AuthenticatedApp /> : <Login />}
+    </Box>
+  );
+};
+
+const RootApp: React.FC = () => {
+  return (
+    <AuthProvider>
+      <App />
+    </AuthProvider>
+  );
+};
+
+export default RootApp;
