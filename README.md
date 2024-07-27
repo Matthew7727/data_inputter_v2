@@ -1,0 +1,1 @@
+You will need to add ur own firebaseConfig.ts in the src/firebase folder. 
